@@ -1,5 +1,6 @@
 *.pickle
 .idea
+.vscode
 *.iml
 *.pyc
 *.ipynb
