@@ -193,65 +193,31 @@ class MftcProcessor(DataProcessor):
     LABEL_COLUMNS = [2, 12]
 
     def get_train_examples(self, data_dir: str) -> List[InputExample]:
-        """
-        This method loads train examples from a file with name `TRAIN_FILE_NAME` in the given directory.
-        :param data_dir: the directory in which the training data can be found
-        :return: a list of train examples
-        """
         return self._create_examples(os.path.join(data_dir, MftcProcessor.TRAIN_FILE_NAME), "train")
 
     def get_dev_examples(self, data_dir: str) -> List[InputExample]:
-        """
-        This method loads dev examples from a file with name `DEV_FILE_NAME` in the given directory.
-        :param data_dir: the directory in which the dev data can be found
-        :return: a list of dev examples
-        """
         return self._create_examples(os.path.join(data_dir, MftcProcessor.DEV_FILE_NAME), "dev")
 
     def get_test_examples(self, data_dir) -> List[InputExample]:
-        """
-        This method loads test examples from a file with name `TEST_FILE_NAME` in the given directory.
-        :param data_dir: the directory in which the test data can be found
-        :return: a list of test examples
-        """
         return self._create_examples(os.path.join(data_dir, MftcProcessor.TEST_FILE_NAME), "test")
 
     def get_unlabeled_examples(self, data_dir) -> List[InputExample]:
-        """
-        This method loads unlabeled examples from a file with name `UNLABELED_FILE_NAME` in the given directory.
-        :param data_dir: the directory in which the unlabeled data can be found
-        :return: a list of unlabeled examples
-        """
         return self._create_examples(os.path.join(data_dir, MftcProcessor.UNLABELED_FILE_NAME), "unlabeled")
 
     def get_labels(self) -> List[str]:
-        """This method returns all possible labels for the task."""
         return MftcProcessor.LABELS
 
     def _create_examples(self, path, set_type, max_examples=-1, skip_first=0):
-        """Creates examples for the training and dev sets."""
         examples = []
-
-        # def one_hot_decoding(labels):
-        #     decoded_labels = []
-        #
-        #     for
-            #
-            # for i, label in enumerate(labels):
-            #     if int(label) == 1:
-            #         decoded_labels.append(str(i + 1))
-            #
-            # return decoded_labels
-
 
         with open(path, encoding='utf8') as f:
             reader = csv.reader(f, delimiter=',')
             for idx, row in enumerate(reader):
                 guid = "%s-%s" % (set_type, idx)
-                labels = [int(x) for x in row[MftcProcessor.LABEL_COLUMNS[0]:MftcProcessor.LABEL_COLUMNS[1] + 1]]
+                label = [int(x) for x in row[MftcProcessor.LABEL_COLUMNS[0]:MftcProcessor.LABEL_COLUMNS[1] + 1]] # Assume one-hot encoding
                 text_a = row[MftcProcessor.TEXT_A_COLUMN]
                 text_b = row[MftcProcessor.TEXT_B_COLUMN] if MftcProcessor.TEXT_B_COLUMN >= 0 else None
-                example = InputExample(guid=guid, text_a=text_a, text_b=text_b, label=labels)
+                example = InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label)
                 examples.append(example)
 
         return examples
@@ -923,8 +889,12 @@ def load_examples(task, data_dir: str, set_type: str, *_, num_examples: int = No
     elif set_type == UNLABELED_SET:
         examples = processor.get_unlabeled_examples(data_dir)
         for example in examples:
-            # example.label = processor.get_labels()[0]
-            example.label = [1] + 10*[0]
+            if isinstance(example.label, str):
+                example.label = processor.get_labels()[0]
+            elif isinstance(example.label, list):
+                example.label = [1] + (len(example.label) - 1) * [0]
+            else:
+                raise ValueError(f"Unknown label type {type(example.label)}")
     else:
         raise ValueError(f"'set_type' must be one of {SET_TYPES}, got '{set_type}' instead")
 
