@@ -480,7 +480,7 @@ class TransformerModelWrapper:
 
         outputs = self.model(**inputs)
         prediction_scores = self.preprocessor.pvp.convert_mlm_logits_to_cls_logits(mlm_labels, outputs[0])
-        loss = nn.CrossEntropyLoss()(prediction_scores.view(-1, len(self.config.label_list)), labels.type(torch.cuda.FloatTensor))
+        loss = nn.CrossEntropyLoss()(prediction_scores.view(-1, len(self.config.label_list)), labels.float() if len(labels.size()) == 2 else labels.view(-1))
 
         if lm_training:
             lm_inputs = self.generate_default_inputs(unlabeled_batch)
