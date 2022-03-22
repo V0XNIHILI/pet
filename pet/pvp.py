@@ -257,28 +257,28 @@ class PVP(ABC):
         return verbalize
 
 
-class MftiPVP(PVP):
-    TASK_NAME = "mfti"
+class MftcPVP(PVP):
+    TASK_NAME = "mftc"
 
     # Set this to the verbalizer for the given task: a mapping from the task's labels (which can be obtained using
     # the corresponding DataProcessor's get_labels method) to tokens from the language model's vocabulary
     VERBALIZER = {
         "1": ["fairness"],
-        "2": ["non-moral"],
+        "2": ["neutrality"], # 3 tokens # non-moral
         "3": ["purity"],
         "4": ["degradation"],
         "5": ["loyalty"],
         "6": ["care"],
         "7": ["cheating"],
         "8": ["betrayal"],
-        "9": ["subversion"],
+        "9": ["revolution"], # 2 tokens # subversion
         "10": ["authority"],
         "11": ["harm"],
     }
 
     # Do we want a sequence pair of one sequence?
     # Do we want multiple patterns? And what patterns?
-    def get_parts(self, example: InputExample):
+    def get_parts(self, example: InputExample) -> FilledPattern:
         """
         This function defines the actual patterns: It takes as input an example and outputs the result of applying a
         pattern to it. To allow for multiple patterns, a pattern_id can be passed to the PVP's constructor. This
@@ -288,21 +288,18 @@ class MftiPVP(PVP):
         # We tell the tokenizer that both text_a and text_b can be truncated if the resulting sequence is longer than
         # our language model's max sequence length.
         text_a = self.shortenable(example.text_a)
-        text_b = self.shortenable(example.text_b)
 
         # For each pattern_id, we define the corresponding pattern and return a pair of text a and text b (where text b
         # can also be empty).
         if self.pattern_id == 0:
-            # this corresponds to the pattern [MASK]: a b
-            return [self.mask, ':', text_a, text_b], []
+            return [text_a, '. This tweet is about', self.mask, '.'], []
         elif self.pattern_id == 1:
-            # this corresponds to the pattern [MASK] News: a || (b)
-            return [self.mask, 'News:', text_a], ['(', text_b, ')']
+            return [text_a, '. This passage contains the moral value', self.mask, '.'], []
         else:
             raise ValueError("No pattern implemented for id {}".format(self.pattern_id))
 
     def verbalize(self, label) -> List[str]:
-        return MftiPVP.VERBALIZER[label]
+        return MftcPVP.VERBALIZER[label]
 
 
 class AgnewsPVP(PVP):
@@ -667,7 +664,7 @@ class RecordPVP(PVP):
 
 
 PVPS = {
-    'mfti': MftiPVP,
+    'mftc': MftcPVP,
     'agnews': AgnewsPVP,
     'mnli': MnliPVP,
     'yelp-polarity': YelpPolarityPVP,
