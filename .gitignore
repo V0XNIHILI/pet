@@ -9,3 +9,5 @@
 glue_data/*
 out/*
 venv/*
+data/*
+output*/

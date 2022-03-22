@@ -232,21 +232,23 @@ class MftcProcessor(DataProcessor):
         """Creates examples for the training and dev sets."""
         examples = []
 
-        def one_hot_decoding(labels):
-            decoded_labels = []
+        # def one_hot_decoding(labels):
+        #     decoded_labels = []
+        #
+        #     for
+            #
+            # for i, label in enumerate(labels):
+            #     if int(label) == 1:
+            #         decoded_labels.append(str(i + 1))
+            #
+            # return decoded_labels
 
-            for i, label in enumerate(labels):
-                if int(label) == 1:
-                    decoded_labels.append(str(i + 1))
 
-            return decoded_labels
-
-
-        with open(path) as f:
+        with open(path, encoding='utf8') as f:
             reader = csv.reader(f, delimiter=',')
             for idx, row in enumerate(reader):
                 guid = "%s-%s" % (set_type, idx)
-                labels = one_hot_decoding(row[MftcProcessor.LABEL_COLUMNS[0]:MftcProcessor.LABEL_COLUMNS[1] + 1])
+                labels = [int(x) for x in row[MftcProcessor.LABEL_COLUMNS[0]:MftcProcessor.LABEL_COLUMNS[1] + 1]]
                 text_a = row[MftcProcessor.TEXT_A_COLUMN]
                 text_b = row[MftcProcessor.TEXT_B_COLUMN] if MftcProcessor.TEXT_B_COLUMN >= 0 else None
                 example = InputExample(guid=guid, text_a=text_a, text_b=text_b, label=labels)
@@ -921,7 +923,8 @@ def load_examples(task, data_dir: str, set_type: str, *_, num_examples: int = No
     elif set_type == UNLABELED_SET:
         examples = processor.get_unlabeled_examples(data_dir)
         for example in examples:
-            example.label = processor.get_labels()[0]
+            # example.label = processor.get_labels()[0]
+            example.label = [1] + 10*[0]
     else:
         raise ValueError(f"'set_type' must be one of {SET_TYPES}, got '{set_type}' instead")
 
