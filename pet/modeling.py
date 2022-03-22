@@ -489,7 +489,13 @@ def evaluate(model: TransformerModelWrapper, eval_data: List[InputExample], conf
     results = model.eval(eval_data, device, per_gpu_eval_batch_size=config.per_gpu_eval_batch_size,
                          n_gpu=config.n_gpu, decoding_strategy=config.decoding_strategy, priming=config.priming)
 
-    predictions = np.argmax(results['logits'], axis=1)
+    def softmax(x):
+        """Compute softmax values for each sets of scores in x."""
+        return np.exp(x) / np.sum(np.exp(x), axis=0)
+
+    # TODO: Change this for multi label
+    # predictions = np.argmax(results['logits'], axis=1)
+    predictions = (np.array([softmax(x) for x in results['logits']]) > 0.5).astype(np.int64)
     scores = {}
 
     for metric in metrics:
