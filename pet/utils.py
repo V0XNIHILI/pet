@@ -235,7 +235,7 @@ def save_predictions(path: str, wrapper, results: Dict):
     else:
         inv_label_map = {idx: label for label, idx in wrapper.preprocessor.label_map.items()}
         for idx, prediction_idx in zip(results['indices'], results['predictions']):
-            prediction = inv_label_map[prediction_idx]
+            prediction = inv_label_map[prediction_idx] if isinstance(prediction_idx, int) else [inv_label_map[i] for i in np.asarray(prediction_idx > 0).nonzero()[0]]
             idx = idx.tolist() if isinstance(idx, np.ndarray) else int(idx)
             predictions_with_idx.append({'idx': idx, 'label': prediction})
 
