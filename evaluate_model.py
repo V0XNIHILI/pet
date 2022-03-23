@@ -7,6 +7,8 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from sklearn.metrics import classification_report
 from tqdm import tqdm
 
+SEED = 42
+np.random.seed(42)
 
 def create_train_test_data(split_percentage=0.2):
     train_data = []
@@ -48,8 +50,9 @@ tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 y_predicted = []
 y_true = []
 
-test_data = test_data.to_numpy()[:args.max_test_size]
+test_data = test_data.to_numpy()
 np.random.shuffle(test_data)
+test_data = test_data[:args.max_test_size]
 
 with torch.no_grad():
     for i in tqdm(range(len(test_data))):
