@@ -49,6 +49,7 @@ y_predicted = []
 y_true = []
 
 test_data = test_data.to_numpy()[:args.max_test_size]
+np.random.shuffle(test_data)
 
 with torch.no_grad():
     for i in tqdm(range(len(test_data))):
