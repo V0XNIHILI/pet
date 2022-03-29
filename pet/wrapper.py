@@ -389,7 +389,7 @@ class TransformerModelWrapper:
                 all_indices = np.append(all_indices, indices.detach().cpu().numpy(), axis=0)
                 if 'question_idx' in batch:
                     question_ids = np.append(question_ids, batch['question_idx'].detach().cpu().numpy(), axis=0)
-
+        # TODO: What are indices?
         return {
             'indices': all_indices,
             'logits': preds,
@@ -480,6 +480,7 @@ class TransformerModelWrapper:
 
         outputs = self.model(**inputs)
         prediction_scores = self.preprocessor.pvp.convert_mlm_logits_to_cls_logits(mlm_labels, outputs[0])
+        # TODO: Check that this loss is appropriate for our case (sigmoid should be used instead of softmax everywhere)
         loss = nn.CrossEntropyLoss()(prediction_scores.view(-1, len(self.config.label_list)), labels.float() if len(labels.size()) == 2 else labels.view(-1))
 
         if lm_training:
@@ -516,6 +517,7 @@ class TransformerModelWrapper:
 
         if use_logits:
             logits_predicted, logits_target = outputs[0], batch['logits']
+            # TODO: Change distillation loss
             return distillation_loss(logits_predicted, logits_target, temperature)
         else:
             return outputs[0]
@@ -524,6 +526,7 @@ class TransformerModelWrapper:
         """Perform a MLM evaluation step."""
         inputs = self.generate_default_inputs(batch)
         outputs = self.model(**inputs)
+        # TODO: Look into what batch['mlm_labels'] are and check.
         return self.preprocessor.pvp.convert_mlm_logits_to_cls_logits(batch['mlm_labels'], outputs[0])
 
     def plm_eval_step(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:

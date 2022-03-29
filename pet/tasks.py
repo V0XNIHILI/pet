@@ -847,11 +847,13 @@ TASK_HELPERS = {
     "multirc": task_helpers.MultiRcTaskHelper,
     "copa": task_helpers.CopaTaskHelper,
     "record": task_helpers.RecordTaskHelper,
+    "mftc": task_helpers.MftcTaskHelper
 }
 
 METRICS = {
     "cb": ["acc", "f1-macro"],
-    "multirc": ["acc", "f1", "em"]
+    "multirc": ["acc", "f1", "em"],
+    "mftc": ["f1-macro"]
 }
 
 DEFAULT_METRICS = ["acc"]

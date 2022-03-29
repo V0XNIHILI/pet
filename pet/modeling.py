@@ -431,7 +431,7 @@ def train_single_model(model: TransformerModelWrapper, train_data: List[InputExa
     model.model.to(device)
 
     if train_data and return_train_set_results:
-        results_dict['train_set_before_training'] = evaluate(model, train_data, eval_config)['scores']['acc']
+        results_dict['train_set_before_training'] = evaluate(model, train_data, eval_config)['scores']['f1-macro']
 
     all_train_data = train_data + ipet_train_data
 
@@ -461,7 +461,7 @@ def train_single_model(model: TransformerModelWrapper, train_data: List[InputExa
         results_dict['average_loss'] = tr_loss
 
     if train_data and return_train_set_results:
-        results_dict['train_set_after_training'] = evaluate(model, train_data, eval_config)['scores']['acc']
+        results_dict['train_set_after_training'] = evaluate(model, train_data, eval_config)['scores']['f1-macro']
 
     return results_dict
 
@@ -489,7 +489,7 @@ def evaluate(model: TransformerModelWrapper, eval_data: List[InputExample], conf
     results = model.eval(eval_data, device, per_gpu_eval_batch_size=config.per_gpu_eval_batch_size,
                          n_gpu=config.n_gpu, decoding_strategy=config.decoding_strategy, priming=config.priming)
 
-    predictions = (np.array([np.exp(x) / np.sum(np.exp(x), axis=0) for x in results['logits']]) > 0.5).astype(np.int64) if len(results['logits'].shape) == 2 else np.argmax(results['logits'], axis=1)
+    predictions = (np.array(results['logits']) > 0).astype(np.int64) if len(results['logits'].shape) == 2 else np.argmax(results['logits'], axis=1)
     scores = {}
 
     for metric in metrics:

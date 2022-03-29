@@ -18,7 +18,7 @@ import torch
 import re
 
 import numpy as np
-from torch.nn import CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
 
 from pet.utils import InputFeatures, InputExample, get_verbalization_ids, chunks, trim_input_ids, remove_final_punc, \
     lowercase_first
@@ -257,6 +257,26 @@ class MultiMaskTaskHelper(TaskHelper):
                                  f"{len(feature.meta['choice_token_ids'])} and {max_num_choices}")
 
         feature_dict['choice_token_ids'] = torch.tensor([f.meta['choice_token_ids'] for f in features], dtype=torch.long)
+
+
+class MftcTaskHelper(TaskHelper):
+    """Custom task helper for the MFTC dataset"""
+
+    def train_step(self, batch, **kwargs) -> Optional[torch.Tensor]:
+        if self.wrapper.config.wrapper_type == 'sequence_classifier':
+            return
+
+        assert self.wrapper.config.wrapper_type == 'mlm', 'train_step() for MFTC is only implemented for MLM models'
+
+        inputs = self.wrapper.generate_default_inputs(batch)
+        mlm_labels, labels = batch['mlm_labels'], batch['labels']
+
+        outputs = self.wrapper.model(**inputs)
+        prediction_scores = self.wrapper.preprocessor.pvp.convert_mlm_logits_to_cls_logits(mlm_labels, outputs[0])
+        loss = BCEWithLogitsLoss()(prediction_scores.view(-1, len(self.wrapper.config.label_list)), labels.float())
+
+        return loss
+
 
 
 class WicTaskHelper(TaskHelper):
