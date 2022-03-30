@@ -489,6 +489,7 @@ def evaluate(model: TransformerModelWrapper, eval_data: List[InputExample], conf
     results = model.eval(eval_data, device, per_gpu_eval_batch_size=config.per_gpu_eval_batch_size,
                          n_gpu=config.n_gpu, decoding_strategy=config.decoding_strategy, priming=config.priming)
 
+    # TODO: Check threshold here
     predictions = (np.array(results['logits']) > 0).astype(np.int64) if len(results['logits'].shape) == 2 else np.argmax(results['logits'], axis=1)
     scores = {}
 
@@ -569,6 +570,7 @@ def merge_logits(logits_dir: str, output_file: str, reduction: str):
         logger.info("File {}: Score = {}, #Logits = {}, #Labels = {}".format(
             results_file, result_train, len(logits), len(logits[0])))
 
+        # TODO: Why is result_train -1?
         loglist = LogitsList(score=result_train, logits=logits)
         all_logits_lists.append(loglist)
 

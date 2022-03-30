@@ -18,7 +18,8 @@ import torch
 import re
 
 import numpy as np
-from torch.nn import CrossEntropyLoss, BCEWithLogitsLoss
+from torch.nn import CrossEntropyLoss
+from torch.nn.functional import binary_cross_entropy_with_logits
 
 from pet.utils import InputFeatures, InputExample, get_verbalization_ids, chunks, trim_input_ids, remove_final_punc, \
     lowercase_first
@@ -114,7 +115,8 @@ class MultiMaskTaskHelper(TaskHelper):
 
         wrong_choices_mask = torch.ones_like(all_choice_token_ids)
         wrong_choices_mask.scatter_(1, all_labels.unsqueeze(-1).unsqueeze(-1).repeat(1, 1, max_seq_len), 0)
-        wrong_choices_token_ids = all_choice_token_ids[wrong_choices_mask.bool()].view(batch_size, num_choices - 1, max_seq_len)
+        wrong_choices_token_ids = all_choice_token_ids[wrong_choices_mask.bool()].view(batch_size, num_choices - 1,
+                                                                                       max_seq_len)
 
         # wrong_choices_token_ids.shape == (num_choices - 1) x max_seq_len x batch_size
         wrong_choices_token_ids = wrong_choices_token_ids.permute(1, 2, 0)
@@ -138,10 +140,12 @@ class MultiMaskTaskHelper(TaskHelper):
             return
 
         assert self.wrapper.config.wrapper_type == 'mlm', 'eval_step() for MultiMaskTaskHelper is only implemented for MLM models'
-        assert batch['input_ids'].shape[0] == 1, "eval_step() for MultiMaskTaskHelper is only implemented for batch_size=1"
+        assert batch['input_ids'].shape[
+                   0] == 1, "eval_step() for MultiMaskTaskHelper is only implemented for batch_size=1"
 
         all_choice_token_ids = batch['choice_token_ids'][0]
-        log_probabilities = torch.tensor([[-math.inf] * len(all_choice_token_ids)], dtype=torch.float, device=all_choice_token_ids.device)
+        log_probabilities = torch.tensor([[-math.inf] * len(all_choice_token_ids)], dtype=torch.float,
+                                         device=all_choice_token_ids.device)
 
         # group choices by length to speed up decoding
         choices_grouped_by_length = defaultdict(list)
@@ -167,7 +171,8 @@ class MultiMaskTaskHelper(TaskHelper):
                 batch_input_ids = input_ids[num_masks].repeat(len(batch), 1)
                 choice_token_ids = torch.stack([choice_token_ids for idx, choice_token_ids in batch])
 
-                batch_probabilities = self._get_choice_probabilities_batched(choice_token_ids, batch_input_ids, initial_outputs[num_masks],
+                batch_probabilities = self._get_choice_probabilities_batched(choice_token_ids, batch_input_ids,
+                                                                             initial_outputs[num_masks],
                                                                              decoding_strategy=decoding_strategy)
 
                 for batch_idx, (idx, choice_token_ids) in enumerate(batch):
@@ -249,34 +254,44 @@ class MultiMaskTaskHelper(TaskHelper):
     def add_features_to_dict(self, features: List[InputFeatures], feature_dict: Dict[str, torch.Tensor]) -> None:
         if self.wrapper.config.wrapper_type == 'sequence_classifier':
             return
-        
+
         max_num_choices = max(len(f.meta['choice_token_ids']) for f in features)
         for feature in features:
             if len(feature.meta['choice_token_ids']) != max_num_choices:
                 raise ValueError(f"The number of output choices must be identical for all examples, got "
                                  f"{len(feature.meta['choice_token_ids'])} and {max_num_choices}")
 
-        feature_dict['choice_token_ids'] = torch.tensor([f.meta['choice_token_ids'] for f in features], dtype=torch.long)
+        feature_dict['choice_token_ids'] = torch.tensor([f.meta['choice_token_ids'] for f in features],
+                                                        dtype=torch.long)
 
 
 class MftcTaskHelper(TaskHelper):
     """Custom task helper for the MFTC dataset"""
 
+    def train_step_sequence_classifier(self, batch, **kwargs) -> torch.Tensor:
+        inputs = self.wrapper.generate_default_inputs(batch)
+        if not kwargs['use_logits']:
+            inputs['labels'] = batch['labels']
+        outputs = self.wrapper.model(**inputs)
+        if kwargs['use_logits']:
+            logits_predicted, logits_target = outputs[0], batch['logits']
+            return binary_cross_entropy_with_logits(logits_predicted, logits_target)
+        else:
+            return outputs[0]
+
     def train_step(self, batch, **kwargs) -> Optional[torch.Tensor]:
         if self.wrapper.config.wrapper_type == 'sequence_classifier':
-            return
-
-        assert self.wrapper.config.wrapper_type == 'mlm', 'train_step() for MFTC is only implemented for MLM models'
+            return self.train_step_sequence_classifier(batch, **kwargs)
 
         inputs = self.wrapper.generate_default_inputs(batch)
         mlm_labels, labels = batch['mlm_labels'], batch['labels']
 
         outputs = self.wrapper.model(**inputs)
         prediction_scores = self.wrapper.preprocessor.pvp.convert_mlm_logits_to_cls_logits(mlm_labels, outputs[0])
-        loss = BCEWithLogitsLoss()(prediction_scores.view(-1, len(self.wrapper.config.label_list)), labels.float())
+        loss = binary_cross_entropy_with_logits(prediction_scores.view(-1, len(self.wrapper.config.label_list)),
+                                                labels.float())
 
         return loss
-
 
 
 class WicTaskHelper(TaskHelper):

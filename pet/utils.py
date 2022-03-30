@@ -335,7 +335,6 @@ def exact_match(predictions: np.ndarray, actuals: np.ndarray, question_ids: np.n
     return em
 
 
-# TODO: Change this because softmax should not apply to our use case
 def distillation_loss(predictions, targets, temperature):
     """Compute the distillation loss (KL divergence between predictions and targets) as described in the PET paper"""
     p = F.log_softmax(predictions / temperature, dim=1)
