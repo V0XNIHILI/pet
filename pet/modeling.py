@@ -490,7 +490,7 @@ def evaluate(model: TransformerModelWrapper, eval_data: List[InputExample], conf
                          n_gpu=config.n_gpu, decoding_strategy=config.decoding_strategy, priming=config.priming)
 
     # TODO: Check threshold here
-    predictions = (np.array(results['logits']) > 0).astype(np.int64) if len(results['logits'].shape) == 2 else np.argmax(results['logits'], axis=1)
+    predictions = (np.array(results['logits']) > 0.5).astype(np.int64) if len(results['logits'].shape) == 2 else np.argmax(results['logits'], axis=1)
     scores = {}
 
     for metric in metrics:

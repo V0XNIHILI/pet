@@ -20,6 +20,7 @@ import re
 import numpy as np
 from torch.nn import CrossEntropyLoss
 from torch.nn.functional import binary_cross_entropy_with_logits
+from torch import sigmoid
 
 from pet.utils import InputFeatures, InputExample, get_verbalization_ids, chunks, trim_input_ids, remove_final_punc, \
     lowercase_first
@@ -293,6 +294,18 @@ class MftcTaskHelper(TaskHelper):
 
         return loss
 
+    def eval_step(self, batch: Dict[str, torch.Tensor], **kwargs) -> Optional[torch.Tensor]:
+        """
+        Perform a MLM evaluation step.
+
+        :param batch: a batch of examples
+        :return: a tensor of logits
+        """
+        inputs = self.wrapper.generate_default_inputs(batch)
+        outputs = self.wrapper.model(**inputs)
+        if self.wrapper.config.wrapper_type == 'sequence_classifier':
+            return outputs[0]
+        return self.wrapper.preprocessor.pvp.convert_mlm_logits_to_cls_logits(batch['mlm_labels'], sigmoid(outputs[0]))
 
 class WicTaskHelper(TaskHelper):
     """A custom task helper for the WiC dataset."""

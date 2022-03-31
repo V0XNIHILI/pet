@@ -10,6 +10,7 @@ from tqdm import tqdm
 SEED = 42
 np.random.seed(42)
 
+
 def create_train_test_data(split_percentage=0.2):
     train_data = []
     test_data = []
@@ -28,9 +29,13 @@ label_names = test_data.columns[2:]
 
 if not os.path.exists("data/mftc/train.csv"):
     train_data.to_csv("data/mftc/train.csv")
+else:
+    train_data = pd.read_csv("data/mftc/train.csv")
 
 if not os.path.exists("data/mftc/test.csv"):
     test_data.to_csv("data/mftc/test.csv")
+else:
+    test_data = pd.read_csv("data/mftc/test.csv")
 
 parser = argparse.ArgumentParser(description="CLI for evaluating a model on MFTC")
 
