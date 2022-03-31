@@ -6,6 +6,7 @@ import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from sklearn.metrics import classification_report
 from tqdm import tqdm
+from torch import sigmoid
 
 SEED = 42
 np.random.seed(42)
@@ -30,12 +31,12 @@ label_names = test_data.columns[2:]
 if not os.path.exists("data/mftc/train.csv"):
     train_data.to_csv("data/mftc/train.csv")
 else:
-    train_data = pd.read_csv("data/mftc/train.csv")
+    train_data = pd.read_csv("data/mftc/train.csv", header=None)
 
 if not os.path.exists("data/mftc/test.csv"):
     test_data.to_csv("data/mftc/test.csv")
 else:
-    test_data = pd.read_csv("data/mftc/test.csv")
+    test_data = pd.read_csv("data/mftc/test.csv", header=None)
 
 parser = argparse.ArgumentParser(description="CLI for evaluating a model on MFTC")
 
@@ -64,7 +65,7 @@ with torch.no_grad():
         data_point = test_data[i]
         encoded_input = tokenizer(data_point[1], return_tensors='pt')
         output = loaded_model(encoded_input['input_ids'], attention_mask=encoded_input['attention_mask'])
-        y_predicted.append((output.logits.numpy().squeeze() >= 0).astype(np.int64))
+        y_predicted.append((sigmoid(output.logits).numpy().squeeze() >= 0.5).astype(np.int64))
         y_true.append(data_point[2:].astype(np.int64))
 
 print(classification_report(np.array(y_true), np.array(y_predicted), target_names=label_names))
