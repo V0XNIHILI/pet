@@ -292,9 +292,11 @@ class MftcPVP(PVP):
         # For each pattern_id, we define the corresponding pattern and return a pair of text a and text b (where text b
         # can also be empty).
         if self.pattern_id == 0:
-            return [text_a, '. This tweet is about', self.mask, '.'], []
+            return [text_a, '. The vice in this tweet is', self.mask, '.'], []
         elif self.pattern_id == 1:
-            return [text_a, '. This passage contains the moral value', self.mask, '.'], []
+            return [text_a, '. This tweet values', self.mask, '.'], []
+        elif self.pattern_id == 2:
+            return [text_a, '. This tweet is about', self.mask, '.'], []
         else:
             raise ValueError("No pattern implemented for id {}".format(self.pattern_id))
 
