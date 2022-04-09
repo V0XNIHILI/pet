@@ -173,13 +173,13 @@ class MftcProcessor(DataProcessor):
     TRAIN_FILE_NAME = "train.csv"
 
     # Set this to the name of the file containing the dev examples
-    DEV_FILE_NAME = "dev.csv"
+    DEV_FILE_NAME = "test.csv"
 
     # Set this to the name of the file containing the test examples
     TEST_FILE_NAME = "test.csv"
 
     # Set this to the name of the file containing the unlabeled examples
-    UNLABELED_FILE_NAME =  "unlabeled.csv"
+    UNLABELED_FILE_NAME = "unlabeled.csv"
 
     # Set this to a list of all labels in the train + test data
     LABELS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"]
@@ -196,7 +196,7 @@ class MftcProcessor(DataProcessor):
         return self._create_examples(os.path.join(data_dir, MftcProcessor.TRAIN_FILE_NAME), "train")
 
     def get_dev_examples(self, data_dir: str) -> List[InputExample]:
-        return self._create_examples(os.path.join(data_dir, MftcProcessor.DEV_FILE_NAME), "dev")
+        return self._create_examples(os.path.join(data_dir, MftcProcessor.DEV_FILE_NAME), "test")
 
     def get_test_examples(self, data_dir) -> List[InputExample]:
         return self._create_examples(os.path.join(data_dir, MftcProcessor.TEST_FILE_NAME), "test")
@@ -214,13 +214,15 @@ class MftcProcessor(DataProcessor):
             reader = csv.reader(f, delimiter=',')
             for idx, row in enumerate(reader):
                 guid = "%s-%s" % (set_type, idx)
-                label = [int(x) for x in row[MftcProcessor.LABEL_COLUMNS[0]:MftcProcessor.LABEL_COLUMNS[1] + 1]] # Assume one-hot encoding
+                # Assume one-hot encoding
+                label = [int(x) for x in row[MftcProcessor.LABEL_COLUMNS[0]:MftcProcessor.LABEL_COLUMNS[1] + 1]]
                 text_a = row[MftcProcessor.TEXT_A_COLUMN]
                 text_b = row[MftcProcessor.TEXT_B_COLUMN] if MftcProcessor.TEXT_B_COLUMN >= 0 else None
                 example = InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label)
                 examples.append(example)
 
         return examples
+
 
 class MnliMismatchedProcessor(MnliProcessor):
     """Processor for the MultiNLI mismatched data set (GLUE version)."""
