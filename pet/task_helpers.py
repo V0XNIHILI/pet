@@ -269,6 +269,9 @@ class MultiMaskTaskHelper(TaskHelper):
 class MftcTaskHelper(TaskHelper):
     """Custom task helper for the MFTC dataset"""
 
+    LABEL_NAMES = ["fairness", "non-moral", "purity", "degradation", "loyalty", "care", "cheating", "betrayal",
+                   "subversion", "authority", "harm"]
+
     def train_step_sequence_classifier(self, batch, **kwargs) -> torch.Tensor:
         inputs = self.wrapper.generate_default_inputs(batch)
         if not kwargs['use_logits']:
@@ -306,6 +309,7 @@ class MftcTaskHelper(TaskHelper):
         if self.wrapper.config.wrapper_type == 'sequence_classifier':
             return outputs[0]
         return self.wrapper.preprocessor.pvp.convert_mlm_logits_to_cls_logits(batch['mlm_labels'], sigmoid(outputs[0]))
+
 
 class WicTaskHelper(TaskHelper):
     """A custom task helper for the WiC dataset."""

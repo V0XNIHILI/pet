@@ -21,7 +21,7 @@ from typing import List, Dict
 
 import numpy as np
 import torch
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, classification_report
 from transformers.data.metrics import simple_accuracy
 
 import log
@@ -358,7 +358,7 @@ def train_pet_ensemble(model_config: WrapperConfig, train_config: TrainConfig, e
                     fh.write(str(results_dict))
 
                 logger.info("Saving trained model at {}...".format(pattern_iter_output_dir))
-                wrapper.save(pattern_iter_output_dir)
+                # wrapper.save(pattern_iter_output_dir)
                 train_config.save(os.path.join(pattern_iter_output_dir, 'train_config.json'))
                 eval_config.save(os.path.join(pattern_iter_output_dir, 'eval_config.json'))
                 logger.info("Saving complete")
@@ -431,7 +431,12 @@ def train_single_model(model: TransformerModelWrapper, train_data: List[InputExa
     model.model.to(device)
 
     if train_data and return_train_set_results:
-        results_dict['train_set_before_training'] = evaluate(model, train_data, eval_config)['scores']['f1-macro']
+        eval_results = evaluate(model, train_data, eval_config)
+        results_dict['train_set_before_training'] = eval_results['scores']['f1-macro']
+        results_dict['classification_report_before_training'] = classification_report(eval_results['labels'],
+                                                                                      eval_results['predictions'],
+                                                                                      target_names=model.task_helper.LABEL_NAMES,
+                                                                                      output_dict=True)
 
     all_train_data = train_data + ipet_train_data
 
@@ -461,7 +466,12 @@ def train_single_model(model: TransformerModelWrapper, train_data: List[InputExa
         results_dict['average_loss'] = tr_loss
 
     if train_data and return_train_set_results:
-        results_dict['train_set_after_training'] = evaluate(model, train_data, eval_config)['scores']['f1-macro']
+        eval_results = evaluate(model, train_data, eval_config)
+        results_dict['train_set_after_training'] = eval_results['scores']['f1-macro']
+        results_dict['classification_report_after_training'] = classification_report(eval_results['labels'],
+                                                                                     eval_results['predictions'],
+                                                                                     target_names=model.task_helper.LABEL_NAMES,
+                                                                                     output_dict=True)
 
     return results_dict
 
@@ -490,7 +500,8 @@ def evaluate(model: TransformerModelWrapper, eval_data: List[InputExample], conf
                          n_gpu=config.n_gpu, decoding_strategy=config.decoding_strategy, priming=config.priming)
 
     # TODO: Check threshold here
-    predictions = (np.array(results['logits']) > 0.5).astype(np.int64) if len(results['logits'].shape) == 2 else np.argmax(results['logits'], axis=1)
+    predictions = (np.array(results['logits']) > 0.5).astype(np.int64) if len(
+        results['logits'].shape) == 2 else np.argmax(results['logits'], axis=1)
     scores = {}
 
     for metric in metrics:
