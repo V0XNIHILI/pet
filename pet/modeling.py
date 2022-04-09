@@ -388,6 +388,10 @@ def train_pet_ensemble(model_config: WrapperConfig, train_config: TrainConfig, e
                 logger.info(scores)
 
                 results_dict['test_set_after_training'] = scores
+                results_dict['test_classification_report_after_training'] = classification_report(eval_result['labels'],
+                                                                                                  eval_result['predictions'],
+                                                                                                  target_names=wrapper.task_helper.LABEL_NAMES,
+                                                                                                  output_dict=True)
                 with open(os.path.join(pattern_iter_output_dir, 'results.json'), 'w') as fh:
                     json.dump(results_dict, fh)
 
