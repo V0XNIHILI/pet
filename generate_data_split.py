@@ -3,9 +3,9 @@ import pandas as pd
 import numpy as np
 import argparse
 
-
+# Set the seed to ensure (to some extent) reproducibility
 SEED = 42
-np.random.seed(42)
+np.random.seed(SEED)
 domains = ["ALM", "Baltimore", "BLM", "Davidson", "Election", "MeToo", "Sandy"]
 
 parser = argparse.ArgumentParser(description="CLI for splitting the MFTC corpus into train/test/unlabeled sets")

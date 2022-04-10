@@ -1,71 +1,100 @@
 import pandas as pd
 import numpy as np
-import argparse
-import os
 import torch
+from torch.utils.data.dataset import T_co
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from sklearn.metrics import classification_report
 from tqdm import tqdm
-from torch import sigmoid
+from torch.utils.data import DataLoader, Dataset
 
+
+class MFTCDataset(Dataset):
+    def __init__(self, train_data: pd.DataFrame, tokenizer):
+        self.train_data = train_data
+        self.tokenizer = tokenizer
+        self.encodings = self.tokenizer(self.train_data[1].to_list(),
+                                        truncation=True, padding=True, max_length=512,
+                                        return_tensors='pt')
+
+        self.labels = torch.tensor(self.train_data[range(2, 13)].to_numpy())
+
+    def __getitem__(self, index) -> T_co:
+        item = {key: val[index] for key, val in self.encodings.items()}
+        item['labels'] = self.labels[index]
+        return item
+
+    def __len__(self):
+        return len(self.labels)
+
+    def to_device(self, device):
+        for item in self.encodings:
+            self.encodings[item] = self.encodings[item].to(device)
+        self.labels = self.labels.to(device)
+
+
+def evaluate(model, test_dataset):
+    model.eval()
+    y_predicted = []
+    y_true = []
+    test_loader = DataLoader(test_dataset, batch_size=32)
+    with torch.no_grad():
+        for _, batch in enumerate(test_loader):
+            input_ids = batch['input_ids']
+            attention_mask = batch['attention_mask']
+            output = model(input_ids, attention_mask=attention_mask)
+            logits = output.logits
+            predictions = (logits > 0).float().cpu().numpy()
+            y_predicted.extend(predictions)
+            y_true.extend(batch['labels'].cpu().numpy())
+
+    result = classification_report(y_true, y_predicted, target_names=LABEL_NAMES, output_dict=True)
+    print(classification_report(y_true, y_predicted, target_names=LABEL_NAMES))
+    return result
+
+
+# Set the seed to ensure (to some extent) reproducibility
 SEED = 42
-np.random.seed(42)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
 
+LABEL_NAMES = ["fairness", "non-moral", "purity", "degradation", "loyalty", "care", "cheating", "betrayal",
+               "subversion", "authority", "harm"]
 
-def create_train_test_data(split_percentage=0.2):
-    train_data = []
-    test_data = []
-    domains = ["ALM", "Baltimore", "BLM", "Davidson", "Election", "MeToo", "Sandy"]
-    for domain in domains:
-        df = pd.read_csv(f"data/{domain}.csv")
-        test, train, _ = np.split(df, [int(split_percentage * len(df)), len(df)])
-        train_data.append(train)
-        test_data.append(test)
-    return pd.concat(train_data), pd.concat(test_data)
-
-
-train_data, test_data = create_train_test_data()
-
-label_names = test_data.columns[2:]
-
-if not os.path.exists("data/mftc/train.csv"):
-    train_data.to_csv("data/mftc/train.csv")
+if torch.cuda.is_available():
+    device = torch.device("cuda")
 else:
-    train_data = pd.read_csv("data/mftc/train.csv", header=None)
+    device = torch.device("cpu")
 
-if not os.path.exists("data/mftc/test.csv"):
-    test_data.to_csv("data/mftc/test.csv")
-else:
-    test_data = pd.read_csv("data/mftc/test.csv", header=None)
-
-parser = argparse.ArgumentParser(description="CLI for evaluating a model on MFTC")
-
-parser.add_argument("--path", default=None, type=str, required=True,
-                    help="The location of the model dir. Should contain a config.json file. If not specified it "
-                         "defaults to the base pretrained model")
-
-parser.add_argument("--max-test-size", default=len(test_data), type=int, required=False,
-                    help="The number of test points to evaluate on.")
-
-args = parser.parse_args()
-
-loaded_model = AutoModelForSequenceClassification.from_pretrained(args.path)
-loaded_model.eval()
+model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=11)
 tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+model.to(device)
+train_dataset = MFTCDataset(pd.read_csv("data/mftc/train.csv", header=None), tokenizer)
+test_dataset = MFTCDataset(pd.read_csv("data/mftc/test.csv", header=None), tokenizer)
 
-y_predicted = []
-y_true = []
+train_dataset.to_device(device)
+test_dataset.to_device(device)
 
-test_data = test_data.to_numpy()
-np.random.shuffle(test_data)
-test_data = test_data[:args.max_test_size]
+print("Results on test set before training")
+evaluate(model, test_dataset)
 
-with torch.no_grad():
-    for i in tqdm(range(len(test_data))):
-        data_point = test_data[i]
-        encoded_input = tokenizer(data_point[1], return_tensors='pt')
-        output = loaded_model(encoded_input['input_ids'], attention_mask=encoded_input['attention_mask'])
-        y_predicted.append((sigmoid(output.logits).numpy().squeeze() >= 0.5).astype(np.int64))
-        y_true.append(data_point[2:].astype(np.int64))
+optim = torch.optim.AdamW(model.parameters(), lr=5e-5)
+loss_function = torch.nn.BCEWithLogitsLoss()
 
-print(classification_report(np.array(y_true), np.array(y_predicted), target_names=label_names))
+epochs = 3
+
+for epoch in tqdm(range(epochs)):
+    train_loader: DataLoader = DataLoader(train_dataset, batch_size=32)
+    for batch in train_loader:
+        optim.zero_grad()
+        input_ids = batch['input_ids']
+        attention_mask = batch['attention_mask']
+        labels = batch['labels'].float()
+        output = model(input_ids, attention_mask=attention_mask)
+        loss = loss_function(output.logits, labels)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optim.step()
+
+print("Results on test set after training")
+evaluate(model, test_dataset)
