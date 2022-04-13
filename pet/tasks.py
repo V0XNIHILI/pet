@@ -165,6 +165,65 @@ class MnliProcessor(DataProcessor):
             return lines
 
 
+class MftcProcessor(DataProcessor):
+    # Set this to the name of the task
+    TASK_NAME = "mftc"
+
+    # Set this to the name of the file containing the train examples
+    TRAIN_FILE_NAME = "train.csv"
+
+    # Set this to the name of the file containing the dev examples
+    DEV_FILE_NAME = "test.csv"
+
+    # Set this to the name of the file containing the test examples
+    TEST_FILE_NAME = "test.csv"
+
+    # Set this to the name of the file containing the unlabeled examples
+    UNLABELED_FILE_NAME = "unlabeled.csv"
+
+    # Set this to a list of all labels in the train + test data
+    LABELS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"]
+
+    # Set this to the column of the train/test csv files containing the input's text a
+    TEXT_A_COLUMN = 1
+
+    TEXT_B_COLUMN = -1
+
+    # Set this to the column of the train/test csv files containing the input's gold label
+    LABEL_COLUMNS = [2, 12]
+
+    def get_train_examples(self, data_dir: str) -> List[InputExample]:
+        return self._create_examples(os.path.join(data_dir, MftcProcessor.TRAIN_FILE_NAME), "train")
+
+    def get_dev_examples(self, data_dir: str) -> List[InputExample]:
+        return self._create_examples(os.path.join(data_dir, MftcProcessor.DEV_FILE_NAME), "test")
+
+    def get_test_examples(self, data_dir) -> List[InputExample]:
+        return self._create_examples(os.path.join(data_dir, MftcProcessor.TEST_FILE_NAME), "test")
+
+    def get_unlabeled_examples(self, data_dir) -> List[InputExample]:
+        return self._create_examples(os.path.join(data_dir, MftcProcessor.UNLABELED_FILE_NAME), "unlabeled")
+
+    def get_labels(self) -> List[str]:
+        return MftcProcessor.LABELS
+
+    def _create_examples(self, path, set_type, max_examples=-1, skip_first=0):
+        examples = []
+
+        with open(path, encoding='utf8') as f:
+            reader = csv.reader(f, delimiter=',')
+            for idx, row in enumerate(reader):
+                guid = "%s-%s" % (set_type, idx)
+                # Assume one-hot encoding
+                label = [int(x) for x in row[MftcProcessor.LABEL_COLUMNS[0]:MftcProcessor.LABEL_COLUMNS[1] + 1]]
+                text_a = row[MftcProcessor.TEXT_A_COLUMN]
+                text_b = row[MftcProcessor.TEXT_B_COLUMN] if MftcProcessor.TEXT_B_COLUMN >= 0 else None
+                example = InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label)
+                examples.append(example)
+
+        return examples
+
+
 class MnliMismatchedProcessor(MnliProcessor):
     """Processor for the MultiNLI mismatched data set (GLUE version)."""
 
@@ -763,6 +822,7 @@ class RecordProcessor(DataProcessor):
 
 
 PROCESSORS = {
+    "mftc": MftcProcessor,
     "mnli": MnliProcessor,
     "mnli-mm": MnliMismatchedProcessor,
     "agnews": AgnewsProcessor,
@@ -789,11 +849,13 @@ TASK_HELPERS = {
     "multirc": task_helpers.MultiRcTaskHelper,
     "copa": task_helpers.CopaTaskHelper,
     "record": task_helpers.RecordTaskHelper,
+    "mftc": task_helpers.MftcTaskHelper
 }
 
 METRICS = {
     "cb": ["acc", "f1-macro"],
-    "multirc": ["acc", "f1", "em"]
+    "multirc": ["acc", "f1", "em"],
+    "mftc": ["f1-macro"]
 }
 
 DEFAULT_METRICS = ["acc"]
@@ -831,7 +893,12 @@ def load_examples(task, data_dir: str, set_type: str, *_, num_examples: int = No
     elif set_type == UNLABELED_SET:
         examples = processor.get_unlabeled_examples(data_dir)
         for example in examples:
-            example.label = processor.get_labels()[0]
+            if isinstance(example.label, str):
+                example.label = processor.get_labels()[0]
+            elif isinstance(example.label, list):
+                example.label = [1] + (len(example.label) - 1) * [0]
+            else:
+                raise ValueError(f"Unknown label type {type(example.label)}")
     else:
         raise ValueError(f"'set_type' must be one of {SET_TYPES}, got '{set_type}' instead")
 
@@ -844,7 +911,12 @@ def load_examples(task, data_dir: str, set_type: str, *_, num_examples: int = No
             limited_examples.add(example)
         examples = limited_examples.to_list()
 
-    label_distribution = Counter(example.label for example in examples)
+    all_labels = []
+
+    for example in examples:
+        all_labels.extend(example.label)
+
+    label_distribution = Counter(all_labels)
     logger.info(f"Returning {len(examples)} {set_type} examples with label dist.: {list(label_distribution.items())}")
 
     return examples

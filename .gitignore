@@ -1,5 +1,6 @@
 *.pickle
 .idea
+.vscode
 *.iml
 *.pyc
 *.ipynb
@@ -8,3 +9,5 @@
 glue_data/*
 out/*
 venv/*
+data/*
+output*/
